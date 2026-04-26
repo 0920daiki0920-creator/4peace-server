@@ -36,8 +36,8 @@ const PANEL='#7055b8',BORDER='#c0a0ff';
 const PINK='#00d4ff',RED_C='#ff2d6e',BLUE_C='#ffaa00';
 const TEXT='#ffffff',DIM='#e0d0ff';
 // 手札: 常に「自分=青・相手=赤」（ホスト/ゲストに依存しない）
-const HAND_SELF_BG='#e8f2ff',HAND_SELF_BORDER='#3d8ce6',HAND_SELF_ACCENT='#1e6fd0';
-const HAND_OP_GRAD='linear-gradient(135deg,#4a1020,#1a080e)',HAND_OP_BORDER='#d04060';
+const HAND_HOST_BG='linear-gradient(165deg,#1b3f86,#0f2758 60%,#08162f)',HAND_HOST_BORDER='#4f8fff',HAND_HOST_ACCENT='#9fd2ff';
+const HAND_GUEST_BG='linear-gradient(160deg,#ff7b93,#d8284f 58%,#8f112c)',HAND_GUEST_BORDER='#ff4d72',HAND_GUEST_ACCENT='#ffd6df';
 const CC={1:'#c0003a',2:'#c05800',3:'#0068a0',4:'#6010b0',5:'#007a40'};
 const WIN_PT=15;
 
@@ -99,12 +99,20 @@ function playComboSfx(voice){
   }catch(e){}
 }
 
-function SlideCard({value,idx,onPlay,disabled}){
+function getRoleColors(role){
+  if(role==='guest'){
+    return { bg: HAND_GUEST_BG, border: HAND_GUEST_BORDER, accent: HAND_GUEST_ACCENT, title: '#ff9bb0' };
+  }
+  return { bg: HAND_HOST_BG, border: HAND_HOST_BORDER, accent: HAND_HOST_ACCENT, title: '#8fc8ff' };
+}
+
+function SlideCard({value,idx,onPlay,disabled,role}){
+  const colors=getRoleColors(role);
   const[dragY,setDragY]=useState(0);
   const[isDragging,setIsDragging]=useState(false);
   const startYR=useRef(0);
   const startedR=useRef(false);
-  const borderCol=disabled?'#b0b8c0':(isDragging&&dragY<-15?HAND_SELF_ACCENT:HAND_SELF_BORDER);
+  const borderCol=disabled?'#b0b8c0':(isDragging&&dragY<-15?colors.accent:colors.border);
   function onPointerDown(e){
     if(disabled)return;
     e.preventDefault();
@@ -133,23 +141,23 @@ function SlideCard({value,idx,onPlay,disabled}){
   return h('div',{
     style:{
       width:50,height:70,borderRadius:7,flexShrink:0,
-      background:disabled?'#e8e8ee':HAND_SELF_BG,
+      background:disabled?'linear-gradient(165deg,#4a4f58,#2c313c)':colors.bg,
       border:'1.5px solid '+borderCol,
       display:'flex',alignItems:'center',justifyContent:'center',
-      opacity:disabled?0.3:1,
+      opacity:disabled?0.55:1,
       animation:isDragging?'none':'dealIn 0.18s ease both',
       position:'relative',userSelect:'none',WebkitUserSelect:'none',
       touchAction:'none',cursor:disabled?'default':'grab',
       zIndex:isDragging?100:1,
       transform:isDragging?`translateY(${dragY}px) scale(1.1)`:'none',
       transition:isDragging?'none':'transform 0.2s ease',
-      boxShadow:isDragging&&dragY<-15?'0 8px 24px '+HAND_SELF_ACCENT+'99':'0 2px 6px #0002',
+      boxShadow:isDragging&&dragY<-15?'0 8px 24px '+colors.accent+'99':'0 2px 6px #0002',
     },
     onPointerDown,onPointerMove,onPointerUp,onPointerCancel:onPointerUp,
   },
-    h('span',{style:{fontSize:26,fontWeight:900,color:CC[value],fontFamily:"'Playfair Display',serif",lineHeight:1,pointerEvents:'none'}},value),
-    h('span',{style:{position:'absolute',top:2,left:4,fontSize:10,color:CC[value],fontWeight:900,pointerEvents:'none'}},value),
-    h('span',{style:{position:'absolute',bottom:2,right:4,fontSize:10,color:CC[value],fontWeight:900,transform:'rotate(180deg)',pointerEvents:'none'}},value)
+    h('span',{style:{fontSize:26,fontWeight:900,color:colors.accent,textShadow:'0 1px 0 #000, 0 0 8px #0006',fontFamily:"'Playfair Display',serif",lineHeight:1,pointerEvents:'none'}},value),
+    h('span',{style:{position:'absolute',top:2,left:4,fontSize:10,color:colors.accent,textShadow:'0 1px 0 #000',fontWeight:900,pointerEvents:'none'}},value),
+    h('span',{style:{position:'absolute',bottom:2,right:4,fontSize:10,color:colors.accent,textShadow:'0 1px 0 #000',fontWeight:900,transform:'rotate(180deg)',pointerEvents:'none'}},value)
   );
 }
 
@@ -270,6 +278,7 @@ function App(){
   const[opHandCount,setOpHandCount]=useState(0);
   const[opName,setOpName]=useState('');
   const[field,setField]=useState([]);
+  const[fieldOwners,setFieldOwners]=useState([]);
   const[fieldSum,setFieldSum]=useState(0);
   const[myPt,setMyPt]=useState(0);
   const[opPt,setOpPt]=useState(0);
@@ -281,6 +290,7 @@ function App(){
   const[resetFA,setResetFA]=useState(false);
   const[comboShow,setComboShow]=useState(null);
   const[gameEndData,setGameEndData]=useState(null);
+  const[myRole,setMyRole]=useState(null);
 
   const wsR=useRef(null);
   const roleR=useRef(null);
@@ -341,6 +351,7 @@ function App(){
         setOpHandCount(msg.opHandCount||0);
         setField(msg.field||[]);
         fieldR.current=msg.field||[];
+        setFieldOwners(msg.fieldOwners||[]);
         setFieldSum(msg.fieldSum||0);
         fieldSumR.current=msg.fieldSum||0;
         setMyPt(msg.myPt||0);
@@ -363,6 +374,7 @@ function App(){
       case 'field':
         setField(msg.field);
         fieldR.current=msg.field;
+        setFieldOwners(msg.fieldOwners||[]);
         setFieldSum(msg.fieldSum);
         fieldSumR.current=msg.fieldSum;
         break;
@@ -379,12 +391,14 @@ function App(){
       case 'fieldUpdate':
         setField(msg.field);
         fieldR.current=msg.field;
+        setFieldOwners(msg.fieldOwners||[]);
         setFieldSum(msg.fieldSum);
         fieldSumR.current=msg.fieldSum;
         break;
       case 'opPlay':
         setField(msg.field);
         fieldR.current=msg.field;
+        setFieldOwners(msg.fieldOwners||[]);
         setFieldSum(msg.fieldSum);
         fieldSumR.current=msg.fieldSum;
         audio.playTap();
@@ -486,10 +500,12 @@ function App(){
       ws.send(JSON.stringify({type:'create',name:playerNameR.current}));
     }
     roleR.current='host';
+    setMyRole('host');
   }
 
   function joinRoom(id){
     roleR.current='guest';
+    setMyRole('guest');
     const ws=wsR.current;
     if(!ws||ws.readyState!==WebSocket.OPEN){
       connect(w=>w.send(JSON.stringify({type:'join',roomId:id,name:playerNameR.current})));
@@ -591,18 +607,18 @@ function App(){
         )
       ),
       h('div',{style:{background:PANEL,border:'1px solid '+BORDER,borderRadius:12,padding:'6px 10px',marginBottom:6}},
-        h('div',{style:{fontSize:8,letterSpacing:3,color:DIM,fontFamily:"'Fira Code',monospace",marginBottom:4}},'👤 相手 — '+opHandCount+'枚'),
+        h('div',{style:{fontSize:8,letterSpacing:3,color:getRoleColors(myRole==='host'?'guest':'host').title,fontFamily:"'Fira Code',monospace",marginBottom:4}},'👤 相手 — '+opHandCount+'枚'),
         h('div',{style:{display:'flex',gap:3,flexWrap:'wrap',justifyContent:'center'}},
-          Array.from({length:Math.min(opHandCount,12)}).map((_,i)=>h('div',{key:i,style:{width:22,height:32,borderRadius:4,background:HAND_OP_GRAD,border:'1px solid '+HAND_OP_BORDER,flexShrink:0,boxShadow:'inset 0 0 6px #ff2d6e22'}}))
+          Array.from({length:Math.min(opHandCount,12)}).map((_,i)=>h('div',{key:i,style:{width:22,height:32,borderRadius:4,background:getRoleColors(myRole==='host'?'guest':'host').bg,border:'1px solid '+getRoleColors(myRole==='host'?'guest':'host').border,flexShrink:0,boxShadow:'inset 0 0 6px #0005'}}))
         )
       ),
       h('div',{style:{background:PANEL,border:'2px solid '+(fieldSum>=8?RED_C:fieldSum>=5?'#e08020':BORDER),borderRadius:14,padding:'10px',textAlign:'center',transition:'border-color 0.25s',marginBottom:6,animation:resetFA?'resetAnim 0.5s ease':burstAnim?'burst 0.5s ease':'none'}},
         h('div',{style:{fontSize:8,letterSpacing:4,color:DIM,fontFamily:"'Fira Code',monospace",marginBottom:5}},'── 場 ──'),
         h('div',{style:{display:'flex',gap:5,justifyContent:'center',alignItems:'center',height:70}},
-          [0,1,2,3].map(i=>field[i]?h('div',{key:i,style:{width:50,height:70,borderRadius:7,flexShrink:0,background:'#f8f6ff',border:'1.5px solid #c0a0e0',display:'flex',alignItems:'center',justifyContent:'center',animation:'dealIn 0.18s ease both',position:'relative'}},
-            h('span',{style:{fontSize:26,fontWeight:900,color:CC[field[i]],fontFamily:"'Playfair Display',serif"}},field[i]),
-            h('span',{style:{position:'absolute',top:2,left:4,fontSize:10,color:CC[field[i]],fontWeight:900}},field[i]),
-            h('span',{style:{position:'absolute',bottom:2,right:4,fontSize:10,color:CC[field[i]],fontWeight:900,transform:'rotate(180deg)'}},field[i])
+          [0,1,2,3].map(i=>field[i]?h('div',{key:i,style:{width:50,height:70,borderRadius:7,flexShrink:0,background:getRoleColors(fieldOwners[i]||'host').bg,border:'1.5px solid '+getRoleColors(fieldOwners[i]||'host').border,display:'flex',alignItems:'center',justifyContent:'center',animation:'dealIn 0.18s ease both',position:'relative',boxShadow:'0 2px 8px #0005'}},
+            h('span',{style:{fontSize:26,fontWeight:900,color:getRoleColors(fieldOwners[i]||'host').accent,textShadow:'0 1px 0 #000, 0 0 8px #0006',fontFamily:"'Playfair Display',serif"}},field[i]),
+            h('span',{style:{position:'absolute',top:2,left:4,fontSize:10,color:getRoleColors(fieldOwners[i]||'host').accent,textShadow:'0 1px 0 #000',fontWeight:900}},field[i]),
+            h('span',{style:{position:'absolute',bottom:2,right:4,fontSize:10,color:getRoleColors(fieldOwners[i]||'host').accent,textShadow:'0 1px 0 #000',fontWeight:900,transform:'rotate(180deg)'}},field[i])
           ):h('div',{key:i,style:{width:50,height:70,flexShrink:0}}))
         ),
         h('div',{style:{marginTop:5,height:36,display:'flex',alignItems:'center',justifyContent:'center',gap:8,visibility:fieldSum>0?'visible':'hidden'}},
@@ -612,12 +628,12 @@ function App(){
       )
     ),
     h('div',{style:{position:'fixed',top:'48vh',left:0,right:0,zIndex:50,background:PANEL,borderTop:'1.5px solid '+BORDER,padding:'8px 12px 12px',boxShadow:'0 -4px 16px #0001'}},
-      h('div',{style:{fontSize:8,letterSpacing:3,color:DIM,fontFamily:"'Fira Code',monospace",marginBottom:5}},'YOU — '+myHand.filter(v=>v&&v!==0).length+'枚'),
+      h('div',{style:{fontSize:8,letterSpacing:3,color:getRoleColors(myRole||'host').title,fontFamily:"'Fira Code',monospace",marginBottom:5}},'YOU — '+myHand.filter(v=>v&&v!==0).length+'枚'),
       h('div',{style:{display:'flex',gap:4,justifyContent:'center',marginBottom:4,flexWrap:'wrap'}},
-        myHand.slice(0,5).map((v,i)=>(!v||v===0)?h('div',{key:i,style:{width:50,height:70,flexShrink:0}}):h(SlideCard,{key:'c'+i+'_'+v,value:v,idx:i,onPlay:playCard,disabled:isCardDisabled(v)}))
+        myHand.slice(0,5).map((v,i)=>(!v||v===0)?h('div',{key:i,style:{width:50,height:70,flexShrink:0}}):h(SlideCard,{key:'c'+i+'_'+v,value:v,idx:i,onPlay:playCard,disabled:isCardDisabled(v),role:myRole}))
       ),
       h('div',{style:{display:'flex',gap:4,justifyContent:'center',flexWrap:'wrap'}},
-        myHand.slice(5).map((v,i)=>(!v||v===0)?h('div',{key:i+5,style:{width:50,height:70,flexShrink:0}}):h(SlideCard,{key:'c'+(i+5)+'_'+v,value:v,idx:i+5,onPlay:playCard,disabled:isCardDisabled(v)}))
+        myHand.slice(5).map((v,i)=>(!v||v===0)?h('div',{key:i+5,style:{width:50,height:70,flexShrink:0}}):h(SlideCard,{key:'c'+(i+5)+'_'+v,value:v,idx:i+5,onPlay:playCard,disabled:isCardDisabled(v),role:myRole}))
       )
     ),
     h('div',{style:{position:'fixed',bottom:0,left:0,right:0,zIndex:49,padding:'6px 12px 8px',display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}},
