@@ -56,8 +56,12 @@ function startCountdown(roomId) {
   if (!room) return;
   clearTimers(room);
 
-  room.state.hostHand = createDeck();
-  room.state.guestHand = createDeck();
+  // 手札が0枚の時だけ新しいデッキを配る
+  const hostAlive = room.state.hostHand.filter(v => v).length;
+  const guestAlive = room.state.guestHand.filter(v => v).length;
+  if (hostAlive === 0) room.state.hostHand = createDeck();
+  if (guestAlive === 0) room.state.guestHand = createDeck();
+
   room.state.field = [];
   room.state.fieldSum = 0;
   room.state.status = 'countdown';
@@ -113,6 +117,9 @@ function startTimer(roomId) {
       setTimeout(() => {
         if (!rooms[roomId]) return;
         broadcast(room, { type: 'flash', msg: null });
+        // タイマー切れは例外：手札を強制リセット
+        room.state.hostHand = createDeck();
+        room.state.guestHand = createDeck();
         room.state.rNum = (room.state.rNum || 1) + 1;
         startCountdown(roomId);
       }, 1600);
@@ -153,6 +160,7 @@ function resolvePlay(roomId, role) {
 
   if (ns > 10) {
     clearTimers(room);
+    s.status = 'resolving'; // カード出し不可
     const isHost = role === 'host';
     if (isHost) s.hostPt = Math.max(0, s.hostPt - 2);
     else s.guestPt = Math.max(0, s.guestPt - 2);
@@ -173,6 +181,7 @@ function resolvePlay(roomId, role) {
   }
   if (ns === 10) {
     clearTimers(room);
+    s.status = 'resolving'; // カード出し不可
     const pts = calcPts(nf);
     const isHost = role === 'host';
     if (isHost) s.hostPt += pts.total;
@@ -199,6 +208,7 @@ function resolvePlay(roomId, role) {
   }
   if (nf.length >= 4) {
     clearTimers(room);
+    s.status = 'resolving'; // カード出し不可
     broadcast(room, { type: 'forceReset' });
     setTimeout(() => {
       if (!rooms[roomId]) return;
