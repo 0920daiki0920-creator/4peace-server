@@ -61,7 +61,6 @@ function startCountdown(roomId) {
   room.state.field = [];
   room.state.fieldSum = 0;
   room.state.status = 'countdown';
-  room.state.countdown = 5;
   room.state.timeLeft = 10;
   room.state.flashMsg = null;
   room.state.burstAnim = false;
@@ -111,10 +110,10 @@ function startTimer(roomId) {
     if (room.state.timeLeft <= 0) {
       clearInterval(room.timer);
       broadcast(room, { type: 'flash', msg: { text: '⏱ 時間切れ！引き分け（±0pt）', who: null } });
-      room.state.rNum = (room.state.rNum || 1) + 1;
       setTimeout(() => {
         if (!rooms[roomId]) return;
         broadcast(room, { type: 'flash', msg: null });
+        room.state.rNum = (room.state.rNum || 1) + 1;
         startCountdown(roomId);
       }, 1600);
     }
@@ -164,7 +163,7 @@ function resolvePlay(roomId, role) {
       if (!rooms[roomId]) return;
       if (fin) {
         const winner = s.hostPt >= 15 ? 'host' : 'guest';
-        broadcast(room, { type: 'finish', winner });
+        broadcast(room, { type: 'finish', winner, hostPt: s.hostPt, guestPt: s.guestPt });
         return;
       }
       s.rNum = (s.rNum || 1) + 1;
@@ -181,16 +180,16 @@ function resolvePlay(roomId, role) {
     const msg = { text: (isHost ? '🙋 YOU +' : '👤 相手 +') + pts.total + 'pt　' + pts.label, who: isHost ? 'player' : 'dealer' };
     const combo = { text: pts.voice || '10達成！', pts: pts.total, color: isHost ? '#00d4ff' : '#ff2d6e' };
     broadcast(room, { type: 'score', msg, combo, hostPt: s.hostPt, guestPt: s.guestPt, voice: pts.voice });
-    const fin = s.hostPt >= 15 || s.guestPt >= 15;
+    const fin2 = s.hostPt >= 15 || s.guestPt >= 15;
     setTimeout(() => {
       if (!rooms[roomId]) return;
       broadcast(room, { type: 'comboEnd' });
     }, 1200);
     setTimeout(() => {
       if (!rooms[roomId]) return;
-      if (fin) {
+      if (fin2) {
         const winner = s.hostPt >= 15 ? 'host' : 'guest';
-        broadcast(room, { type: 'finish', winner });
+        broadcast(room, { type: 'finish', winner, hostPt: s.hostPt, guestPt: s.guestPt });
         return;
       }
       s.rNum = (s.rNum || 1) + 1;
@@ -290,9 +289,9 @@ wss.on('connection', (ws) => {
       s.field.push(value);
       s.fieldSum += value;
 
-      // 相手に「カードが出た」を通知
-      const opRole = role === 'host' ? 'guest' : 'host';
+      // 両者に場の確定値を送る（楽観的更新は使わない）
       const opWs = role === 'host' ? room.guest : room.host;
+      send(ws, { type: 'fieldUpdate', field: s.field, fieldSum: s.fieldSum });
       send(opWs, { type: 'opPlay', value, field: s.field, fieldSum: s.fieldSum });
 
       resolvePlay(ws.roomId, role);
