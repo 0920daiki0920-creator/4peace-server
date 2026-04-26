@@ -185,7 +185,7 @@ function resolvePlay(roomId, role) {
     const isHost = role === 'host';
     if (isHost) s.hostPt = Math.max(0, s.hostPt - 2);
     else s.guestPt = Math.max(0, s.guestPt - 2);
-    const msg = { text: isHost ? '💥 バースト！あなた-2pt' : '💥 相手バースト！相手-2pt', who: isHost ? 'player' : 'dealer' };
+    const msg = { text: isHost ? '💥 バースト！あなた-2pt' : '💥 相手バースト！相手-2pt', by: role };
     broadcast(room, { type: 'burst', msg, hostPt: s.hostPt, guestPt: s.guestPt });
     const fin = s.hostPt >= 15 || s.guestPt >= 15;
     setTimeout(() => {
@@ -203,7 +203,7 @@ function resolvePlay(roomId, role) {
     const isHost = role === 'host';
     if (isHost) s.hostPt += pts.total;
     else s.guestPt += pts.total;
-    const msg = { text: (isHost ? '🙋 YOU +' : '👤 相手 +') + pts.total + 'pt　' + pts.label, who: isHost ? 'player' : 'dealer' };
+    const msg = { text: (isHost ? '🙋 YOU +' : '👤 相手 +') + pts.total + 'pt　' + pts.label, by: role };
     const combo = { text: pts.voice || '10達成！', pts: pts.total, color: isHost ? '#00d4ff' : '#ff2d6e' };
     broadcast(room, { type: 'score', msg, combo, hostPt: s.hostPt, guestPt: s.guestPt, voice: pts.voice });
     const fin2 = s.hostPt >= 15 || s.guestPt >= 15;
