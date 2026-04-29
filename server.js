@@ -93,7 +93,6 @@ function startCountdown(roomId) {
   if (guestAlive === 0) room.state.guestHand = createDeck();
 
   room.state.field = [];
-  room.state.fieldOwners = [];
   room.state.fieldSum = 0;
   room.state.status = 'countdown';
   room.state.timeLeft = 10;
@@ -160,7 +159,6 @@ function getStateForRole(room, role) {
     myHand: role === 'host' ? s.hostHand : s.guestHand,
     opHandCount: role === 'host' ? s.guestHand.filter(v=>v).length : s.hostHand.filter(v=>v).length,
     field: s.field,
-    fieldOwners: s.fieldOwners || [],
     fieldSum: s.fieldSum,
     myPt: role === 'host' ? s.hostPt : s.guestPt,
     opPt: role === 'host' ? s.guestPt : s.hostPt,
@@ -179,6 +177,7 @@ function resolvePlay(roomId, role) {
   if (!room) return;
   const s = room.state;
   const nf = [...s.field];
+  const nfValues = nf.map(c => typeof c === 'object' ? c.value : c);
   const ns = s.fieldSum;
 
   if (ns > 10) {
@@ -201,7 +200,7 @@ function resolvePlay(roomId, role) {
   if (ns === 10) {
     clearTimers(room);
     s.status = 'resolving';
-    const pts = calcPts(nf);
+    const pts = calcPts(nfValues);
     const isHost = role === 'host';
     if (isHost) s.hostPt += pts.total;
     else s.guestPt += pts.total;
@@ -230,7 +229,7 @@ function resolvePlay(roomId, role) {
     return;
   }
   // 通常：場を両者に送る
-  broadcast(room, { type: 'field', field: s.field, fieldOwners: s.fieldOwners || [], fieldSum: s.fieldSum });
+  broadcast(room, { type: 'field', field: s.field, fieldSum: s.fieldSum });
 }
 
 // ─── ゲーム終了・レーティング更新 ───
@@ -299,7 +298,7 @@ wss.on('connection', (ws) => {
         state: {
           hostPt: 0, guestPt: 0,
           hostHand: [], guestHand: [],
-          field: [], fieldOwners: [], fieldSum: 0,
+          field: [], fieldSum: 0,
           status: 'waiting',
           rNum: 1, timeLeft: 10,
           flashMsg: null, burstAnim: false, resetFA: false, comboShow: null,
@@ -354,14 +353,12 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'handUpdate', idx, hand });
       }
 
-      s.field.push(value);
-      s.fieldOwners.push(role);
+      s.field.push({value, by: role});
       s.fieldSum += value;
 
       const opWs = role === 'host' ? room.guest : room.host;
-      // 自分には確定値を送る、相手にも通知
-      send(ws, { type: 'fieldUpdate', field: s.field, fieldOwners: s.fieldOwners || [], fieldSum: s.fieldSum });
-      send(opWs, { type: 'opPlay', value, field: s.field, fieldOwners: s.fieldOwners || [], fieldSum: s.fieldSum });
+      send(ws, { type: 'fieldUpdate', field: s.field, fieldSum: s.fieldSum });
+      send(opWs, { type: 'opPlay', value, field: s.field, fieldSum: s.fieldSum });
 
       resolvePlay(ws.roomId, role);
     }
