@@ -177,7 +177,6 @@ function resolvePlay(roomId, role) {
   if (!room) return;
   const s = room.state;
   const nf = [...s.field];
-  const nfValues = nf.map(c => typeof c === 'object' ? c.value : c);
   const ns = s.fieldSum;
 
   if (ns > 10) {
@@ -200,7 +199,7 @@ function resolvePlay(roomId, role) {
   if (ns === 10) {
     clearTimers(room);
     s.status = 'resolving';
-    const pts = calcPts(nfValues);
+    const pts = calcPts(nf);
     const isHost = role === 'host';
     if (isHost) s.hostPt += pts.total;
     else s.guestPt += pts.total;
@@ -353,7 +352,7 @@ wss.on('connection', (ws) => {
         send(ws, { type: 'handUpdate', idx, hand });
       }
 
-      s.field.push({value, by: role});
+      s.field.push(value);
       s.fieldSum += value;
 
       const opWs = role === 'host' ? room.guest : room.host;
