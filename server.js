@@ -276,8 +276,6 @@ function finishGame(roomId) {
 
 // ─── WebSocket接続処理 ───
 wss.on('connection', (ws) => {
-  ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
@@ -327,7 +325,7 @@ wss.on('connection', (ws) => {
       room.state.rNum = 1;
       room.state.hostPt = 0;
       room.state.guestPt = 0;
-      setTimeout(() => startCountdown(msg.roomId), 500);
+      setTimeout(() => startCountdown(msg.roomId), 3000);
     }
 
     // カードを出す
@@ -384,23 +382,6 @@ wss.on('connection', (ws) => {
     }
   });
 });
-
-// クライアントのキープアライブ（15秒ごとにpingを送り、応答なしは切断）
-setInterval(() => {
-  wss.clients.forEach(ws => {
-    if (ws.isAlive === false) {
-      const room = rooms[ws.roomId];
-      if (room) {
-        clearTimers(room);
-        broadcast(room, { type: 'opLeft' });
-        delete rooms[ws.roomId];
-      }
-      return ws.terminate();
-    }
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 15000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
