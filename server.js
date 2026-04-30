@@ -383,6 +383,15 @@ wss.on('connection', (ws) => {
   });
 });
 
+// クライアントのキープアライブ（30秒ごとにpingを送る）
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    }
+  });
+}, 30000);
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
