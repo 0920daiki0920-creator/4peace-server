@@ -325,7 +325,13 @@ wss.on('connection', (ws) => {
       room.state.rNum = 1;
       room.state.hostPt = 0;
       room.state.guestPt = 0;
-      setTimeout(() => startCountdown(msg.roomId), 500);
+    }
+
+    // ゲスト準備完了
+    else if (msg.type === 'ready') {
+      const room = rooms[ws.roomId];
+      if (!room) return;
+      setTimeout(() => startCountdown(ws.roomId), 500);
     }
 
     // カードを出す
