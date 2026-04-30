@@ -325,7 +325,7 @@ wss.on('connection', (ws) => {
       room.state.rNum = 1;
       room.state.hostPt = 0;
       room.state.guestPt = 0;
-      setTimeout(() => startCountdown(msg.roomId), 3000);
+      setTimeout(() => startCountdown(msg.roomId), 500);
     }
 
     // カードを出す
