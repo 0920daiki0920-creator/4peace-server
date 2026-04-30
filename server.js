@@ -6,7 +6,11 @@ const server = http.createServer((req, res) => {
   res.end('4 Peace Speed Server Running');
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ 
+  server,
+  perMessageDeflate: false,
+  clientTracking: true,
+});
 
 // ルーム管理
 const rooms = {};
@@ -392,4 +396,19 @@ wss.on('connection', (ws) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
+});
+
+// ハートビート（30秒ごとにpingを送り接続を維持）
+function heartbeat() { this.isAlive = true; }
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on('connection', ws => {
+  ws.isAlive = true;
+  ws.on('pong', heartbeat);
 });
