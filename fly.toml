@@ -10,6 +10,8 @@ app = "4peace-server-vw1ezw"
 
   [[services.ports]]
     port = 80
+    handlers = ["http"]
 
   [[services.ports]]
     port = 443
+    handlers = ["tls", "http"]
