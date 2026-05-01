@@ -30,8 +30,12 @@ function createRoom(){
 
 function joinRoom(){
   connect();
-  const room=document.getElementById("roomInput").value;
+  const room = document.getElementById("roomInput").value;
+
   ws.onopen=()=>{
-    ws.send(JSON.stringify({type:'join',room}));
+    ws.send(JSON.stringify({
+      type:'join',
+      room: room
+    }));
   };
 }
