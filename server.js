@@ -86,7 +86,6 @@ function startCountdown(roomId) {
   if (!room) return;
   clearTimers(room);
 
-  // 手札が0枚の時だけ補充（タイマー切れは別途処理）
   const hostAlive = room.state.hostHand.filter(v => v).length;
   const guestAlive = room.state.guestHand.filter(v => v).length;
   if (hostAlive === 0) room.state.hostHand = createDeck();
@@ -96,57 +95,46 @@ function startCountdown(roomId) {
   room.state.fieldSum = 0;
   room.state.status = 'countdown';
   room.state.timeLeft = 10;
-  room.state.flashMsg = null;
-  room.state.burstAnim = false;
-  room.state.resetFA = false;
-  room.state.comboShow = null;
 
-  send(room.host, { type: 'state', ...getStateForRole(room, 'host'), countdown: 5 });
-  send(room.guest, { type: 'state', ...getStateForRole(room, 'guest'), countdown: 5 });
+  // タイムスタンプ方式：カウントダウン開始時刻を送る
+  const countdownStartAt = Date.now();
+  const countdownDuration = 5; // 5秒カウントダウン
 
-  let c = 5;
-  function tick() {
+  send(room.host, { type: 'state', ...getStateForRole(room, 'host'), countdownStartAt, countdownDuration });
+  send(room.guest, { type: 'state', ...getStateForRole(room, 'guest'), countdownStartAt, countdownDuration });
+
+  // サーバー側はゲーム開始タイミングだけ管理
+  const gameStartAt = countdownStartAt + (countdownDuration + 1) * 700;
+  room.countTimer = setTimeout(() => {
     if (!rooms[roomId]) return;
-    broadcast(rooms[roomId], { type: 'countdown', value: c });
-    if (c === 0) {
-      room.countTimer = setTimeout(() => {
-        broadcast(rooms[roomId], { type: 'countdown', value: -1 });
-        room.state.status = 'playing';
-        startTimer(roomId);
-      }, 700);
-      return;
-    }
-    c--;
-    room.countTimer = setTimeout(tick, 700);
-  }
-  // stateが届いてから少し待ってカウントダウン開始
-  setTimeout(tick, 200);
+    room.state.status = 'playing';
+    const timerEndAt = Date.now() + 10000;
+    broadcast(room, { type: 'gameStart', timerEndAt });
+    startTimer(roomId, timerEndAt);
+  }, (countdownDuration + 1) * 700);
 }
 
-function startTimer(roomId) {
+function startTimer(roomId, timerEndAt) {
   const room = rooms[roomId];
   if (!room) return;
   room.state.timeLeft = 10;
-  broadcast(room, { type: 'timer', value: 10 });
 
   room.timer = setInterval(() => {
     if (!rooms[roomId]) return;
-    room.state.timeLeft--;
-    broadcast(room, { type: 'timer', value: room.state.timeLeft });
-    if (room.state.timeLeft <= 0) {
+    const remaining = Math.ceil((timerEndAt - Date.now()) / 1000);
+    room.state.timeLeft = remaining;
+    if (remaining <= 0) {
       clearInterval(room.timer);
-      broadcast(room, { type: 'flash', msg: { text: '⏱ 時間切れ！引き分け（±0pt）', who: null } });
+      broadcast(room, { type: 'timeUp' });
       setTimeout(() => {
         if (!rooms[roomId]) return;
-        broadcast(room, { type: 'flash', msg: null });
-        // タイマー切れは手札強制リセット
         room.state.hostHand = createDeck();
         room.state.guestHand = createDeck();
         room.state.rNum = (room.state.rNum || 1) + 1;
         startCountdown(roomId);
       }, 1600);
     }
-  }, 1000);
+  }, 500);
 }
 
 function clearTimers(room) {
@@ -321,11 +309,12 @@ wss.on('connection', (ws) => {
       ws.roomId = msg.roomId;
       ws.role = 'guest';
       ws.playerName = msg.name || 'ゲスト';
-      send(ws, { type: 'joined', roomId: msg.roomId, opName: room.hostName });
-      send(room.host, { type: 'guestJoined', opName: room.guestName });
       room.state.rNum = 1;
       room.state.hostPt = 0;
       room.state.guestPt = 0;
+      // ゲストに即座にstateとroleを送信してから開始
+      send(ws, { type: 'joined', roomId: msg.roomId, opName: room.hostName });
+      send(room.host, { type: 'guestJoined', opName: room.guestName });
       setTimeout(() => startCountdown(msg.roomId), 500);
     }
 
@@ -358,7 +347,7 @@ wss.on('connection', (ws) => {
 
       const opWs = role === 'host' ? room.guest : room.host;
       send(ws, { type: 'fieldUpdate', field: s.field, fieldSum: s.fieldSum });
-      send(opWs, { type: 'opPlay', value, field: s.field, fieldSum: s.fieldSum });
+      send(opWs, { type: 'opPlay', value, fieldSum: s.fieldSum, fieldLen: s.field.length });
 
       resolvePlay(ws.roomId, role);
     }
