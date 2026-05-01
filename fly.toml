@@ -1,3 +1,9 @@
+app = "4peace-server-vw1ezw"
+
+[build]
+
+[env]
+
 [[services]]
   internal_port = 3000
   protocol = "tcp"
