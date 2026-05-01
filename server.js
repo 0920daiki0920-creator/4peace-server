@@ -37,7 +37,6 @@ function calcPts(cards) {
 }
 
 function canPlay(v, fieldSum, fieldLen) {
-  if (fieldLen >= 4) return false;
   const filled = fieldLen + 1;
   const ns = fieldSum + v;
   if (filled === 3 && ns < 5) return false;
@@ -120,7 +119,8 @@ function startCountdown(roomId) {
     c--;
     room.countTimer = setTimeout(tick, 700);
   }
-  tick();
+  // stateが届いてから少し待ってカウントダウン開始
+  setTimeout(tick, 200);
 }
 
 function startTimer(roomId) {
@@ -328,7 +328,6 @@ wss.on('connection', (ws) => {
       room.state.guestPt = 0;
       setTimeout(() => startCountdown(msg.roomId), 500);
     }
-
 
     // カードを出す
     else if (msg.type === 'play') {
