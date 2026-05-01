@@ -31,46 +31,76 @@ const wss = new WebSocket.Server({ server });
 
 const rooms = {};
 
-function createDeck(){
-  return Array.from({length:10},()=>Math.floor(Math.random()*5)+1);
-}
+wss.on('connection', ws => {
 
-wss.on('connection',ws=>{
-  ws.on('message',raw=>{
+  ws.on('message', raw => {
     let msg;
-    try{msg=JSON.parse(raw);}catch{return;}
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      return;
+    }
 
-    if(msg.type==='create'){
-      let id = Math.floor(1000+Math.random()*9000).toString();
-      rooms[id]={players:[]};
+    // ルーム作成
+    if (msg.type === 'create') {
+      let id = Math.floor(1000 + Math.random() * 9000).toString();
 
-      ws.room=id;
+      rooms[id] = { players: [] };
+
+      ws.room = id;
       rooms[id].players.push(ws);
 
-      ws.send(JSON.stringify({type:'created',room:id}));
+      ws.send(JSON.stringify({
+        type: 'created',
+        room: id
+      }));
     }
 
-    if(msg.type==='join'){
-      const room=rooms[msg.room];
-      if(!room) return;
+    // 参加
+    if (msg.type === 'join') {
+      const room = rooms[msg.room];
+      if (!room) return;
 
-      ws.room=msg.room;
+      ws.room = msg.room;
       room.players.push(ws);
+
+      // 参加通知（両方に送る）
+      room.players.forEach(p => {
+        if (p.readyState === 1) {
+          p.send(JSON.stringify({
+            type: 'joined'
+          }));
+        }
+      });
     }
 
-    if(msg.type==='play'){
-      const room=rooms[ws.room];
-      if(!room) return;
+    // カード送信
+    if (msg.type === 'play') {
+      const room = rooms[ws.room];
+      if (!room) return;
 
-      room.players.forEach(p=>{
-        if(p.readyState===1){
+      room.players.forEach(p => {
+        if (p.readyState === 1) {
           p.send(JSON.stringify(msg));
         }
       });
     }
+
   });
+
+  ws.on('close', () => {
+    const room = rooms[ws.room];
+    if (!room) return;
+
+    room.players = room.players.filter(p => p !== ws);
+
+    if (room.players.length === 0) {
+      delete rooms[ws.room];
+    }
+  });
+
 });
 
-server.listen(PORT,"0.0.0.0",()=>{
-  console.log("running",PORT);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log("running", PORT);
 });
