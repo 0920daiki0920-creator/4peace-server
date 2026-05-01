@@ -6,11 +6,7 @@ const server = http.createServer((req, res) => {
   res.end('4 Peace Speed Server Running');
 });
 
-const wss = new WebSocket.Server({ 
-  server,
-  perMessageDeflate: false,
-  clientTracking: true,
-});
+const wss = new WebSocket.Server({ server });
 
 // ルーム管理
 const rooms = {};
@@ -41,6 +37,7 @@ function calcPts(cards) {
 }
 
 function canPlay(v, fieldSum, fieldLen) {
+  if (fieldLen >= 4) return false;
   const filled = fieldLen + 1;
   const ns = fieldSum + v;
   if (filled === 3 && ns < 5) return false;
@@ -329,14 +326,9 @@ wss.on('connection', (ws) => {
       room.state.rNum = 1;
       room.state.hostPt = 0;
       room.state.guestPt = 0;
+      setTimeout(() => startCountdown(msg.roomId), 500);
     }
 
-    // ゲスト準備完了
-    else if (msg.type === 'ready') {
-      const room = rooms[ws.roomId];
-      if (!room) return;
-      setTimeout(() => startCountdown(ws.roomId), 500);
-    }
 
     // カードを出す
     else if (msg.type === 'play') {
@@ -396,19 +388,4 @@ wss.on('connection', (ws) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
-});
-
-// ハートビート（30秒ごとにpingを送り接続を維持）
-function heartbeat() { this.isAlive = true; }
-setInterval(() => {
-  wss.clients.forEach(ws => {
-    if (ws.isAlive === false) return ws.terminate();
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 30000);
-
-wss.on('connection', ws => {
-  ws.isAlive = true;
-  ws.on('pong', heartbeat);
 });
