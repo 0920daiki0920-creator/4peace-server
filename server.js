@@ -162,6 +162,9 @@ function broadcastState(roomId) {
     timeLeft: s.timeLeft,
     field: s.field,
     fieldSum: s.fieldSum,
+    // ── 追加: 誰が出したかを配列で送る ──
+    // クライアントは自分のrole('host'/'guest')と照合して 'player'/'dealer' に変換する
+    fieldOwners: s.fieldOwners,
     hostPt: s.hostPt,
     guestPt: s.guestPt,
     rNum: s.rNum,
@@ -209,6 +212,7 @@ function processInput(roomId, input) {
   }
 
   s.field.push(value);
+  s.fieldOwners.push(role); // ── 追加: 出したロールを記録 ──
   s.fieldSum += value;
   s.lastPlayRole = role;
 
@@ -259,6 +263,7 @@ function startNextRound(roomId) {
   if (!room) return;
   const s = room.state;
   s.field = [];
+  s.fieldOwners = []; // ── 追加: ラウンド開始時にクリア ──
   s.fieldSum = 0;
   s.resolving = false;
   s.flashMsg = null;
@@ -316,7 +321,8 @@ wss.on('connection', (ws) => {
           timeLeft: 10,
           hostPt: 0, guestPt: 0,
           hostHand: [], guestHand: [],
-          field: [], fieldSum: 0,
+          field: [], fieldOwners: [], // ── 追加: 初期化 ──
+          fieldSum: 0,
           rNum: 1,
           resolving: false,
           flashMsg: null, comboShow: null,
