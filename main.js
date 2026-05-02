@@ -1,45 +1,28 @@
-const ws = new WebSocket("wss://4peace-server-vw1ezw.fly.dev");
+const ws = new WebSocket(
+  location.protocol === "https:"
+    ? `wss://${location.host}`
+    : `ws://${location.host}`
+);
 
-let room = null;
+const info = document.getElementById("info");
 
-// 接続成功
-ws.onopen = () => {
-  console.log("connected to server");
-};
-
-// メッセージ受信
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-
-  if (msg.type === "created") {
-    room = msg.room;
-    alert("部屋作成: " + room);
-  }
-
-  if (msg.type === "joined") {
-    alert("参加成功！");
-  }
-
-  if (msg.type === "play") {
-    alert("相手が押した！");
-  }
-};
-
-// 部屋作成
 function createRoom() {
   ws.send(JSON.stringify({ type: "create" }));
 }
 
-// 部屋参加
 function joinRoom() {
-  const input = document.getElementById("roomInput");
-  ws.send(JSON.stringify({
-    type: "join",
-    room: input.value
-  }));
+  const room = document.getElementById("roomInput").value;
+  ws.send(JSON.stringify({ type: "join", room }));
 }
 
-// ボタン押す
-function play() {
-  ws.send(JSON.stringify({ type: "play" }));
-}
+ws.onmessage = e => {
+  const msg = JSON.parse(e.data);
+
+  if (msg.type === "created") {
+    info.innerText = "ルームコード: " + msg.room;
+  }
+
+  if (msg.type === "joined") {
+    info.innerText = "参加成功！";
+  }
+};
