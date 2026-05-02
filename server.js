@@ -265,13 +265,16 @@ function startNextRound(roomId) {
   s.comboShow = null;
   s.burstAnim = false;
   s.resetAnim = false;
+  s.lastPlayRole = null;
   s.rNum = (s.rNum || 1) + 1;
   s.phase = 'countdown';
   s.phaseStartAt = Date.now();
   s.countdown = 5;
+  s.timeLeft = 10;
 
-  if (s.hostHand.filter(v => v).length === 0) s.hostHand = createDeck();
-  if (s.guestHand.filter(v => v).length === 0) s.guestHand = createDeck();
+  // 手札補充
+  if (!s.hostHand || s.hostHand.filter(v => v).length === 0) s.hostHand = createDeck();
+  if (!s.guestHand || s.guestHand.filter(v => v).length === 0) s.guestHand = createDeck();
 }
 
 function finishGame(roomId) {
