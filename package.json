@@ -1,7 +1,7 @@
 {
   "name": "4peace-server",
   "version": "1.0.0",
-  "description": "4peace game server",
+  "description": "4peace game server v1",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
