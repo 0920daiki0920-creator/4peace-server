@@ -1,12 +1,32 @@
 const WebSocket = require('ws');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 
-// ✅ 絶対成功するHTTPレスポンス
+// ✅ ファイルを返すサーバー（HTML / JS対応）
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('OK'); // ← これが超重要（Fly対策）
+
+  let filePath = '.' + (req.url === '/' ? '/index.html' : req.url);
+
+  let ext = path.extname(filePath);
+
+  let type = 'text/plain';
+  if (ext === '.html') type = 'text/html';
+  if (ext === '.js') type = 'text/javascript';
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      res.end('Not found');
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': type });
+    res.end(data);
+  });
+
 });
 
 const wss = new WebSocket.Server({ server });
