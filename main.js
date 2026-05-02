@@ -18,6 +18,8 @@ function joinRoom() {
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
 
+  console.log(msg); // ←確認用
+
   if (msg.type === "created") {
     info.innerText = "ルームコード: " + msg.room;
   }
