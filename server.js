@@ -25,14 +25,14 @@ function createDeck() {
 function calcPts(cards) {
   const s = [...cards].sort((a, b) => a - b);
   if (cards.length === 4 && s.join('') === '1234') return { total: 5, voice: 'ストレート', label: 'ストレート +5pt' };
-  if (cards.length === 2 && s[0] === 5 && s[1] === 5) return { total: 1, voice: '', label: 'ノーボーナス +1pt' };
+  if (cards.length === 2 && s[0] === 5 && s[1] === 5) return { total: 1, voice: 'ノーボーナス', label: 'ノーボーナス +1pt' };
   const freq = {};
   cards.forEach(v => { freq[v] = (freq[v] || 0) + 1; });
   const counts = Object.values(freq);
   if (counts.some(c => c >= 3)) return { total: 4, voice: 'スリーカード', label: 'スリーカード +4pt' };
   if (counts.filter(c => c === 2).length >= 2) return { total: 3, voice: 'ツーペア', label: 'ツーペア +3pt' };
   if (counts.some(c => c === 2)) return { total: 2, voice: 'ワンペア', label: 'ワンペア +2pt' };
-  return { total: 1, voice: '', label: 'ノーボーナス +1pt' };
+  return { total: 1, voice: 'ノーボーナス', label: 'ノーボーナス +1pt' };
 }
 
 function canPlay(v, fieldSum, fieldLen) {
