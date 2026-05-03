@@ -93,6 +93,24 @@ function startGameLoop(roomId) {
     // フェーズ管理
     const now = Date.now();
 
+    if (room.state.phase === 'loading') {
+      const elapsed = now - room.state.phaseStartAt;
+      room.state.loadingPct = Math.min(100, Math.floor(elapsed / 30)); // 3秒で100%
+      if (elapsed >= 3000) {
+        room.state.phase = 'ready';
+        room.state.phaseStartAt = now;
+      }
+    }
+
+    if (room.state.phase === 'ready') {
+      const elapsed = now - room.state.phaseStartAt;
+      if (elapsed >= 1200) {
+        room.state.phase = 'countdown';
+        room.state.phaseStartAt = now;
+        room.state.countdown = 5;
+      }
+    }
+
     if (room.state.phase === 'countdown') {
       const elapsed = now - room.state.phaseStartAt;
       const count = Math.max(0, 5 - Math.floor(elapsed / 700));
@@ -160,6 +178,7 @@ function broadcastState(roomId) {
     phase: s.phase,
     countdown: s.countdown,
     timeLeft: s.timeLeft,
+    loadingPct: s.loadingPct || 0,
     field: s.field,
     fieldSum: s.fieldSum,
     // ── 追加: 誰が出したかを配列で送る ──
@@ -322,6 +341,7 @@ wss.on('connection', (ws) => {
           hostPt: 0, guestPt: 0,
           hostHand: [], guestHand: [],
           field: [], fieldOwners: [], // ── 追加: 初期化 ──
+          loadingPct: 0,
           fieldSum: 0,
           rNum: 1,
           resolving: false,
@@ -348,12 +368,12 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'joined', roomId: msg.roomId });
       send(room.host, { type: 'guestJoined' });
 
-      // ゲーム開始
+      // ゲーム開始（1ラウンド目はloadingフェーズから）
       room.state.hostHand = createDeck();
       room.state.guestHand = createDeck();
-      room.state.phase = 'countdown';
+      room.state.phase = 'loading';
       room.state.phaseStartAt = Date.now();
-      room.state.countdown = 5;
+      room.state.loadingPct = 0;
       startGameLoop(msg.roomId);
     }
 
