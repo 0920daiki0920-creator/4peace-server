@@ -130,7 +130,7 @@ function startGameLoop(roomId) {
 
     if (room.state.phase === 'playing') {
       const elapsed = now - room.state.phaseStartAt;
-      const timeLeft = Math.max(0, 10 - Math.floor(elapsed / 1000));
+      const timeLeft = Math.max(0, 10 - elapsed / 1000); // 小数点あり
       room.state.timeLeft = timeLeft;
       if (timeLeft <= 0 && !room.state.resolving) {
         room.state.resolving = true;
