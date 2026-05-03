@@ -93,6 +93,11 @@ function startGameLoop(roomId) {
     // フェーズ管理
     const now = Date.now();
 
+    if (room.state.phase === 'waiting_ack') {
+      // 両者ackが来るまでloading=0で待機、broadcastはloadingとして送る
+      room.state.loadingPct = 0;
+    }
+
     if (room.state.phase === 'loading') {
       const elapsed = now - room.state.phaseStartAt;
       room.state.loadingPct = Math.min(100, Math.floor(elapsed / 30)); // 3秒で100%
@@ -176,7 +181,7 @@ function broadcastState(roomId) {
 
   const base = {
     type: 'tick',
-    phase: s.phase,
+    phase: s.phase === 'waiting_ack' ? 'loading' : s.phase,
     countdown: s.countdown,
     timeLeft: s.timeLeft,
     playingStartAt: s.playingStartAt || null,
@@ -372,13 +377,27 @@ wss.on('connection', (ws) => {
       send(ws, { type: 'joined', roomId: msg.roomId });
       send(room.host, { type: 'guestJoined' });
 
-      // ゲーム開始（1ラウンド目はloadingフェーズから）
+      // 両者のack待ち状態でゲームループ開始
       room.state.hostHand = createDeck();
       room.state.guestHand = createDeck();
-      room.state.phase = 'loading';
-      room.state.phaseStartAt = Date.now();
+      room.state.phase = 'waiting_ack';
+      room.state.hostAck = false;
+      room.state.guestAck = false;
       room.state.loadingPct = 0;
       startGameLoop(msg.roomId);
+    }
+
+    else if (msg.type === 'readyAck') {
+      const room = rooms[ws.roomId];
+      if (!room || room.state.phase !== 'waiting_ack') return;
+      if (ws.role === 'host') room.state.hostAck = true;
+      if (ws.role === 'guest') room.state.guestAck = true;
+      // 両者ackが揃ったらloading開始
+      if (room.state.hostAck && room.state.guestAck) {
+        room.state.phase = 'loading';
+        room.state.phaseStartAt = Date.now();
+        room.state.loadingPct = 0;
+      }
     }
 
     else if (msg.type === 'play') {
