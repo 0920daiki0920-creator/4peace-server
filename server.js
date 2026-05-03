@@ -118,6 +118,7 @@ function startGameLoop(roomId) {
       if (elapsed >= 700 * 6) {
         room.state.phase = 'playing';
         room.state.phaseStartAt = now;
+        room.state.playingStartAt = now;
         room.state.timeLeft = 10;
       }
     }
@@ -178,6 +179,7 @@ function broadcastState(roomId) {
     phase: s.phase,
     countdown: s.countdown,
     timeLeft: s.timeLeft,
+    playingStartAt: s.playingStartAt || null,
     loadingPct: s.loadingPct || 0,
     field: s.field,
     fieldSum: s.fieldSum,
@@ -295,6 +297,7 @@ function startNextRound(roomId) {
   s.phaseStartAt = Date.now();
   s.countdown = 5;
   s.timeLeft = 10;
+  s.playingStartAt = null;
 
   // 手札補充
   if (!s.hostHand || s.hostHand.filter(v => v).length === 0) s.hostHand = createDeck();
@@ -342,6 +345,7 @@ wss.on('connection', (ws) => {
           hostHand: [], guestHand: [],
           field: [], fieldOwners: [], // ── 追加: 初期化 ──
           loadingPct: 0,
+          playingStartAt: null,
           fieldSum: 0,
           rNum: 1,
           resolving: false,
